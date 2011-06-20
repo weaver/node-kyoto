@@ -219,9 +219,41 @@ KyotoDB.prototype.get = function(key, next) {
 // + atomic - Boolean fetch all keys atomically (optional, default: false)
 // + next   - Function(Error, Object items, Array keys)
 //
-// Returns self.
+// Returns self
 KyotoDB.prototype.getBulk = function(keys, atomic, next) {
   return this._bulk('getBulk', keys, atomic, next);
+};
+
+// Find a set of keys that start with the given prefix.
+//
+// If `max` is given, the list of keys returned will be at most `max`
+// elements long. If `max` is `-1` (the default), there is no limit on
+// the result set.
+//
+// + prefix - String keys start with this
+// + max    - Integer maximum result set size (optional, default: -1)
+// + next   - Function(Error, Array keys)
+//
+// Returns self
+KyotoDB.prototype.matchPrefix = function(prefix, max, next) {
+  return this._match('matchPrefix', prefix, max, next);
+};
+
+// Find a set of keys that match a given pattern.
+//
+// If `max` is given, the list of keys returned will be at most `max`
+// elements long. If `max` is `-1` (the default), there is no limit on
+// the result set.
+//
+// + regex - String pattern to match keys against
+// + max   - Integer maximum result set size (optional, default: -1)
+// + next  - Function(Error, Array keys)
+//
+// Returns self
+KyotoDB.prototype.matchRegex = function(pattern, max, next) {
+  if (pattern instanceof RegExp)
+    pattern = pattern.source;
+  return this._match('matchRegex', pattern, max, next);
 };
 
 // Append to a value in the database.
@@ -351,7 +383,7 @@ KyotoDB.prototype.cas = function(key, ovalue, nvalue, next) {
 // number of items written.
 //
 // + items  - Object of key/value items
-// + atomic - Boolean fetch all keys atomically (optional, default: false)
+// + atomic - Boolean perform atomic operation (optional, default: false)
 // + next   - Function(Error, Integer written, Object items)
 //
 // Returns self.
@@ -364,7 +396,7 @@ KyotoDB.prototype.setBulk = function(items, atomic, next) {
 // Upon success, `next` is called with the number of items removed.
 //
 // + keys   - Array of keys
-// + atomic - Boolean fetch all keys atomically (optional, default: false)
+// + atomic - Boolean perform atomic operation (optional, default: false)
 // + next   - Function(Error, Integer removed, Array keys)
 //
 // Returns self.
@@ -464,6 +496,22 @@ KyotoDB.prototype._bulk = function(method, what, atomic, next) {
       else
         next.call(self, null, result, what);
     });
+
+  return this;
+};
+
+KyotoDB.prototype._match = function(method, pattern, max, next) {
+  var self = this;
+
+  if (typeof max == 'function') {
+    next = max;
+    max = -1;
+  }
+
+  if (this.db === null)
+    next.call(this, new Error(method + ': database is closed.'));
+  else
+    this.db[method](pattern, max, next);
 
   return this;
 };

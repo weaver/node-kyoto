@@ -232,11 +232,13 @@ public:
     NODE_SET_PROTOTYPE_METHOD(ctor, "increment", Increment);
     NODE_SET_PROTOTYPE_METHOD(ctor, "incrementDouble", IncrementDouble);
     NODE_SET_PROTOTYPE_METHOD(ctor, "cas", CAS);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "remove", Remove);
     NODE_SET_PROTOTYPE_METHOD(ctor, "get", Get);
     NODE_SET_PROTOTYPE_METHOD(ctor, "getBulk", GetBulk);
     NODE_SET_PROTOTYPE_METHOD(ctor, "setBulk", SetBulk);
     NODE_SET_PROTOTYPE_METHOD(ctor, "removeBulk", RemoveBulk);
-    NODE_SET_PROTOTYPE_METHOD(ctor, "remove", Remove);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "matchPrefix", MatchPrefix);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "matchRegex", MatchRegex);
     NODE_SET_PROTOTYPE_METHOD(ctor, "synchronize", Synchronize);
 
     // Here are some non-standard methods for Toji.
@@ -881,6 +883,90 @@ public:
     inline int after() {
       Local<Value> argv[1] = { error() };
       callback(1, argv);
+      return 0;
+    }
+  };
+
+  
+  // ### MatchPrefix ###
+
+  DEFINE_METHOD(MatchPrefix, MatchPrefixRequest)
+  class MatchPrefixRequest: public Request {
+  protected:
+    String::Utf8Value pattern;
+    int64_t max;
+    StringList keys;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 3
+	      && args[0]->IsString()
+	      && args[1]->IsNumber()
+	      && args[2]->IsFunction());
+    }
+
+    MatchPrefixRequest(const Arguments& args):
+      Request(args, 2),
+      pattern(args[0]->ToString()),
+      max(args[1]->IntegerValue())
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+
+      std::string prefix = std::string(*pattern, pattern.length());
+      if (db->match_prefix(prefix, &keys, max) == -1) {
+	result = db->error().code();
+      }
+
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[2] = { error(), ListToArray(keys) };
+      callback(2, argv);
+      return 0;
+    }
+  };
+
+  
+  // ### MatchRegex ###
+
+  DEFINE_METHOD(MatchRegex, MatchRegexRequest)
+  class MatchRegexRequest: public Request {
+  protected:
+    String::Utf8Value pattern;
+    int64_t max;
+    StringList keys;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 3
+	      && args[0]->IsString()
+	      && args[1]->IsNumber()
+	      && args[2]->IsFunction());
+    }
+
+    MatchRegexRequest(const Arguments& args):
+      Request(args, 2),
+      pattern(args[0]->ToString()),
+      max(args[1]->IntegerValue())
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+
+      std::string regex = std::string(*pattern, pattern.length());
+      if (db->match_regex(regex, &keys, max) == -1) {
+	result = db->error().code();
+      }
+
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[2] = { error(), ListToArray(keys) };
+      callback(2, argv);
       return 0;
     }
   };

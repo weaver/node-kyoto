@@ -364,6 +364,22 @@ module.exports = {
     }
   },
 
+  'match prefix': function(done) {
+    db.matchPrefix('ap', function(err, keys) {
+      if (err) throw err;
+      Assert.deepEqual(['api', 'apple'], keys);
+      done();
+    });
+  },
+
+  'match regex': function(done) {
+    db.matchRegex(/(\w)\1/, function(err, keys) {
+      if (err) throw err;
+      Assert.deepEqual(['aardvark', 'allow', 'apple', 'arrest'], keys);
+      done();
+    });
+  },
+
   'close': function(done) {
     db.close(function(err) {
       if (err) throw err;
