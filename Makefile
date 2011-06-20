@@ -17,3 +17,4 @@ test:
 
 clean:
 	node-waf clean
+	rm -rf build

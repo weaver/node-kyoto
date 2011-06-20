@@ -18,8 +18,15 @@ using namespace node;
 using namespace v8;
 using namespace kyotocabinet;
 
+// FIXME: is there a way to add a version check against kyotocabinet?
+
 
 // ## Helpful Macros ##
+
+#define SET_CONSTANT(target, name)					\
+  (target)->Set(String::NewSymbol(#name),				\
+                Integer::New(name),					\
+                static_cast<PropertyAttribute>(ReadOnly|DontDelete))	\
 
 #define SET_CLASS_CONSTANT(target, cls, name)				\
   (target)->Set(String::NewSymbol(#name),				\
@@ -208,12 +215,18 @@ public:
     SET_CLASS_CONSTANT(ctor, PolyDB::Error, SYSTEM);
     SET_CLASS_CONSTANT(ctor, PolyDB::Error, MISC);
 
+    SET_CONSTANT(ctor, INT64MIN);
+    SET_CONSTANT(ctor, INT64MAX);
+
     NODE_SET_PROTOTYPE_METHOD(ctor, "open", Open);
     NODE_SET_PROTOTYPE_METHOD(ctor, "close", Close);
     NODE_SET_PROTOTYPE_METHOD(ctor, "closeSync", CloseSync);
     NODE_SET_PROTOTYPE_METHOD(ctor, "set", Set);
     NODE_SET_PROTOTYPE_METHOD(ctor, "add", Add);
     NODE_SET_PROTOTYPE_METHOD(ctor, "replace", Replace);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "append", Append);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "increment", Increment);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "incrementDouble", IncrementDouble);
     NODE_SET_PROTOTYPE_METHOD(ctor, "get", Get);
     NODE_SET_PROTOTYPE_METHOD(ctor, "getBulk", GetBulk);
     NODE_SET_PROTOTYPE_METHOD(ctor, "remove", Remove);
@@ -453,6 +466,127 @@ public:
       if (!db->replace(*key, key.length(), *value, value.length())) {
 	result = db->error().code();
       }
+      return 0;
+    }
+  };
+
+  
+  // ### Append ###
+
+  DEFINE_METHOD(Append, AppendRequest)
+  class AppendRequest: public SetRequest {
+  public:
+    AppendRequest(const Arguments& args) :
+      SetRequest(args)
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+      if (!db->append(*key, key.length(), *value, value.length())) {
+	result = db->error().code();
+      }
+      return 0;
+    }
+  };
+
+  
+  // ### Increment ###
+
+  DEFINE_METHOD(Increment, IncrementRequest)
+  class IncrementRequest: public Request {
+  protected:
+    String::Utf8Value key;
+    int64_t num;
+    int64_t orig;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 3
+	      && args[0]->IsString()
+	      && args[1]->IsNumber()
+	      && args[2]->IsNumber()
+	      && args[3]->IsFunction());
+    }
+
+    IncrementRequest(const Arguments& args):
+      Request(args, 3),
+      key(args[0]->ToString()),
+      num(args[1]->IntegerValue()),
+      orig(args[2]->IntegerValue())
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+
+      num = db->increment(*key, key.length(), num, orig);
+      if (num == INT64MIN) {
+	result = db->error().code();
+      }
+
+      return 0;
+    }
+
+    inline int after() {
+      int argc = 0;
+      Local<Value> argv[2];
+
+      argv[argc++] = error();
+      if (num != INT64MIN) {
+	argv[argc++] = Integer::New(num);
+      }
+
+      callback(argc, argv);
+      return 0;
+    }
+  };
+
+  
+  // ### IncrementDouble ###
+
+  DEFINE_METHOD(IncrementDouble, IncrementDoubleRequest)
+  class IncrementDoubleRequest: public Request {
+  protected:
+    String::Utf8Value key;
+    double num;
+    double orig;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 3
+	      && args[0]->IsString()
+	      && args[1]->IsNumber()
+	      && args[2]->IsNumber()
+	      && args[3]->IsFunction());
+    }
+
+    IncrementDoubleRequest(const Arguments& args):
+      Request(args, 3),
+      key(args[0]->ToString()),
+      num(args[1]->NumberValue()),
+      orig(args[2]->NumberValue())
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+
+      num = db->increment_double(*key, key.length(), num, orig);
+      if (std::isnan(num)) {
+	result = db->error().code();
+      }
+
+      return 0;
+    }
+
+    inline int after() {
+      int argc = 0;
+      Local<Value> argv[2];
+
+      argv[argc++] = error();
+      if (!std::isnan(num)) {
+	argv[argc++] = Number::New(num);
+      }
+
+      callback(argc, argv);
       return 0;
     }
   };

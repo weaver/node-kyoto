@@ -224,6 +224,41 @@ KyotoDB.prototype.getBulk = function(keys, atomic, next) {
   return this;
 };
 
+// Append to a value in the database.
+//
+// + key    - String key
+// + suffix - String value
+// + next   - Function(Error, String suffix, String key) callback
+//
+// Returns self.
+KyotoDB.prototype.append = function(key, suffix, next) {
+  return this._modify('append', key, suffix, next);
+};
+
+// Increment an integer value in the database.
+//
+// + key  - String key
+// + num  - Integer number to increment by
+// + orig - Integer base number if not already set (optional, default: 0)
+// + next - Function(Error, Integer value, String key) callback
+//
+// Returns self.
+KyotoDB.prototype.increment = function(key, num, orig, next) {
+  return this._inc('increment', key, num, orig, next);
+};
+
+// Increment a double value in the database.
+//
+// + key  - String key
+// + num  - Double number to increment by
+// + orig - Double base number if not already set (optional, default: 0.0)
+// + next - Function(Error, Double value, String key) callback
+//
+// Returns self.
+KyotoDB.prototype.incrementDouble = function(key, num, orig, next) {
+  return this._inc('incrementDouble', key, num, orig, next);
+};
+
 // Set a value in the database.
 //
 // + key   - String key
@@ -317,6 +352,11 @@ KyotoDB.prototype.synchronize = function(hard, next) {
   return this;
 };
 
+// TODO: cas, setBulk, removeBulk, match_prefix, match_regex
+// MORE: dumpSnapshot, loadSnapshot, clear
+// THEN:  count, size, status, merge
+// MAYBE: scan_parallel
+
 // A low-level helper method. See add() or set().
 KyotoDB.prototype._modify = function(method, key, val, next) {
   var self = this;
@@ -329,6 +369,28 @@ KyotoDB.prototype._modify = function(method, key, val, next) {
   else
     this.db[method](key, val, function(err) {
       next.call(self, err, val, key);
+    });
+
+  return this;
+};
+
+// A low-level helper method. See increment().
+KyotoDB.prototype._inc = function(method, key, num, orig, next) {
+  var self = this;
+
+  if (typeof orig != 'number') {
+    next = orig;
+    orig = 0;
+  }
+
+  if (!next)
+    next = noop;
+
+  if (this.db === null)
+    next.call(this, new Error(method + ': database is closed.'));
+  else
+    this.db[method](key, num, orig, function(err, value, key) {
+      next.call(self, err, value, key);
     });
 
   return this;

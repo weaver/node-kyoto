@@ -44,10 +44,18 @@ Node.JS. For example:
 
 ## Installation ##
 
-Be sure you've installed Kyoto Cabinet first; try to use your
-operating system's package manager. Then:
+Dependencies: Kyoto Cabinet `>= 1.2.57`, Node `>= 0.4.0`
+
+If Kyoto Cabinet isn't already installed, try using your operating
+system's package manager. Otherwise, download and build
+[from source][3]. If you install manually, don't forget to do an
+`ldconfig` afterwards.
+
+To install the Kyoto bindings, use `npm`:
 
     npm install kyoto
+
+[3]: http://fallabs.com/kyotocabinet/pkg/
 
 ## Documentation ##
 
@@ -57,14 +65,14 @@ are forthcoming.
 
 ## Related ##
 
-An alternative to this package is [Kyoto Client][3], an implementation
+An alternative to this package is [Kyoto Client][4], an implementation
 of a Kyoto Tycoon client. Tycoon is an out-of-process server that
 allows clients to interact with a Kyoto Cabinet over a network
 API. Using Kyoto Client is recommended unless you really need
 something in-process and plan to implement your own key/value network
 API.
 
-[3]: http://kyoto-client.org/
+[4]: http://kyoto-client.org/
 
 ## License ##
 

@@ -89,6 +89,52 @@ module.exports = {
     });
   },
 
+  'first append': function(done) {
+    db.append('epsilon', 'prefix', function(err) {
+      if (err) throw err;
+      isEqual('epsilon', 'prefix', done);
+    });
+  },
+
+  'second append': function(done) {
+    db.append('epsilon', '-suffix', function(err) {
+      if (err) throw err;
+      isEqual('epsilon', 'prefix-suffix', done);
+    });
+  },
+
+  'increment': function(done) {
+    db.increment('iota', 1, function(err, val) {
+      if (err) throw err;
+      Assert.equal(1, val);
+      done();
+    });
+  },
+
+  'increment again': function(done) {
+    db.increment('iota', 1, function(err, val) {
+      if (err) throw err;
+      Assert.equal(2, val);
+      done();
+    });
+  },
+
+  'increment double': function(done) {
+    db.incrementDouble('kappa', 0.1, 1.0, function(err, val) {
+      if (err) throw err;
+      Assert.equal(1.1, val);
+      done();
+    });
+  },
+
+  'increment double again': function(done) {
+    db.incrementDouble('kappa', 0.1, 1.0, function(err, val) {
+      if (err) throw err;
+      Assert.equal(1.2, val);
+      done();
+    });
+  },
+
   'close': function(done) {
     db.close(function(err) {
       if (err) throw err;
@@ -263,6 +309,14 @@ module.exports = {
 
 
 // ## Helpers ##
+
+function isEqual(key, expect, done) {
+  db.get(key, function(err, val) {
+    if (err) throw err;
+    Assert.equal(expect, val);
+    done();
+  });
+}
 
 function allEqual(done, expect) {
   var all = {};
