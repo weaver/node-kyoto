@@ -8,8 +8,8 @@ all:
 ## `.npmignore` file a while back (or maybe I'm just doing it
 ## wrong). Do this as a workaround.
 publish:
-	(cd .. && tar cvzf /tmp/kyoto-client.tar.gz -X toji/.npmignore toji)
-	npm publish /tmp/toji.tar.gz
+	(cd .. && tar cvzf /tmp/kyoto.tar.gz -X kyoto/.npmignore kyoto)
+	npm publish /tmp/kyoto.tar.gz
 
 ## Run all unit tests.
 test:

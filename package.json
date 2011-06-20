@@ -1,6 +1,6 @@
 {
   "name": "kyoto",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Kyoto Cabinet bindings for Node.JS",
   "author": "Ben Weaver <ben@orangesoda.net>"
 }

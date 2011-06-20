@@ -1,3 +1,4 @@
+.git*
 .lock-wscript
 build
 npm-debug.log
