@@ -42,6 +42,13 @@ Node.JS. For example:
 [1]: http://fallabs.com/kyotocabinet/spex.html
 [2]: http://fallabs.com/kyotocabinet/api/
 
+## Installation ##
+
+Be sure you've installed Kyoto Cabinet first; try to use your
+operating system's package manager. Then:
+
+    npm install kyoto
+
 ## Documentation ##
 
 Please refer to `kyoto.js` for documentation of each method. Some
@@ -56,6 +63,8 @@ allows clients to interact with a Kyoto Cabinet over a network
 API. Using Kyoto Client is recommended unless you really need
 something in-process and plan to implement your own key/value network
 API.
+
+[3]: http://kyoto-client.org/
 
 ## License ##
 
