@@ -6,6 +6,7 @@
 // way.
 
 var K = require('./build/default/_kyoto'),
+    LOGIC = K.PolyDB.LOGIC,
     NOREC = K.PolyDB.NOREC;
 
 exports.open = open;
@@ -165,6 +166,22 @@ KyotoDB.prototype.closeSync = function() {
   return this;
 };
 
+// Clear all items from the database.
+//
+// + next - Function(Error) callback
+//
+// Returns self
+KyotoDB.prototype.clear = function(next) {
+  var self = this;
+
+  if (this.db === null)
+    next.call(this, new Error('clear: database is closed.'));
+  else
+    this.db.clear(next);
+
+  return this;
+};
+
 // Get a value from the database.
 //
 // If the value does not exist, `next` is called with a `null` error
@@ -204,24 +221,7 @@ KyotoDB.prototype.get = function(key, next) {
 //
 // Returns self.
 KyotoDB.prototype.getBulk = function(keys, atomic, next) {
-  var self = this;
-
-  if (typeof atomic == 'function') {
-    next = atomic;
-    atomic = undefined;
-  }
-
-  if (this.db === null)
-    next.call(this, new Error('getBulk: database is closed.'));
-  else
-    this.db.getBulk(keys, !!atomic, function(err, items) {
-      if (err)
-        next.call(self, err);
-      else
-        next.call(self, null, items, keys);
-    });
-
-  return this;
+  return this._bulk('getBulk', keys, atomic, next);
 };
 
 // Append to a value in the database.
@@ -321,6 +321,57 @@ KyotoDB.prototype.remove = function(key, next) {
   return this;
 };
 
+// Compare and swap
+//
+// + key    - String key
+// + ovalue - String old value (or null if it doesn't exist)
+// + nvalue - String new value (or null to remove)
+// + next   - Function(Error, success, String key) callback
+//
+// Returns self.
+KyotoDB.prototype.cas = function(key, ovalue, nvalue, next) {
+  var self = this;
+
+  if (!next)
+    next = noop;
+
+  if (this.db === null)
+    next.call(this, new Error('cas: database is closed.'));
+  else
+    this.db.cas(key, ovalue, nvalue, function(err, success) {
+      next.call(self, err, success, key);
+    });
+
+  return this;
+};
+
+// Set multiple items at once the database.
+//
+// Set all key/value pairs in the `items` object; call `next` with the
+// number of items written.
+//
+// + items  - Object of key/value items
+// + atomic - Boolean fetch all keys atomically (optional, default: false)
+// + next   - Function(Error, Integer written, Object items)
+//
+// Returns self.
+KyotoDB.prototype.setBulk = function(items, atomic, next) {
+  return this._bulk('setBulk', items, atomic, next);
+};
+
+// Remove several items from the database.
+//
+// Upon success, `next` is called with the number of items removed.
+//
+// + keys   - Array of keys
+// + atomic - Boolean fetch all keys atomically (optional, default: false)
+// + next   - Function(Error, Integer removed, Array keys)
+//
+// Returns self.
+KyotoDB.prototype.removeBulk = function(keys, atomic, next) {
+  return this._bulk('removeBulk', keys, atomic, next);
+};
+
 // Flush everything to disk.
 //
 // If the optional `hard` parameter is `true`, physically synchronize
@@ -352,9 +403,9 @@ KyotoDB.prototype.synchronize = function(hard, next) {
   return this;
 };
 
-// TODO: cas, setBulk, removeBulk, match_prefix, match_regex
-// MORE: dumpSnapshot, loadSnapshot, clear
-// THEN:  count, size, status, merge
+// TODO:  matchPrefix, matchRegex
+// MORE: dumpSnapshot, loadSnapshot
+// THEN: count, size, status, merge
 // MAYBE: scan_parallel
 
 // A low-level helper method. See add() or set().
@@ -391,6 +442,27 @@ KyotoDB.prototype._inc = function(method, key, num, orig, next) {
   else
     this.db[method](key, num, orig, function(err, value, key) {
       next.call(self, err, value, key);
+    });
+
+  return this;
+};
+
+KyotoDB.prototype._bulk = function(method, what, atomic, next) {
+  var self = this;
+
+  if (typeof atomic == 'function') {
+    next = atomic;
+    atomic = undefined;
+  }
+
+  if (this.db === null)
+    next.call(this, new Error(method + ': database is closed.'));
+  else
+    this.db[method](what, !!atomic, function(err, result) {
+      if (err)
+        next.call(self, err);
+      else
+        next.call(self, null, result, what);
     });
 
   return this;

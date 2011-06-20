@@ -45,6 +45,9 @@ using namespace kyotocabinet;
 #define V8_TO_BOOL(obj)                                                 \
   (obj->ToBoolean() == v8::True())                                      \
 
+#define BOOL_TO_LOCAL_V8(obj)                                           \
+  (Local<Boolean>::New(Boolean::New(obj)))				\
+
 #define EQ_STRING_BUF(str, buf, bsiz)                                   \
   (str.length() == bsiz && str.compare(0, bsiz, vbuf, bsiz) == 0)       \
 
@@ -221,14 +224,18 @@ public:
     NODE_SET_PROTOTYPE_METHOD(ctor, "open", Open);
     NODE_SET_PROTOTYPE_METHOD(ctor, "close", Close);
     NODE_SET_PROTOTYPE_METHOD(ctor, "closeSync", CloseSync);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "clear", Clear);
     NODE_SET_PROTOTYPE_METHOD(ctor, "set", Set);
     NODE_SET_PROTOTYPE_METHOD(ctor, "add", Add);
     NODE_SET_PROTOTYPE_METHOD(ctor, "replace", Replace);
     NODE_SET_PROTOTYPE_METHOD(ctor, "append", Append);
     NODE_SET_PROTOTYPE_METHOD(ctor, "increment", Increment);
     NODE_SET_PROTOTYPE_METHOD(ctor, "incrementDouble", IncrementDouble);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "cas", CAS);
     NODE_SET_PROTOTYPE_METHOD(ctor, "get", Get);
     NODE_SET_PROTOTYPE_METHOD(ctor, "getBulk", GetBulk);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "setBulk", SetBulk);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "removeBulk", RemoveBulk);
     NODE_SET_PROTOTYPE_METHOD(ctor, "remove", Remove);
     NODE_SET_PROTOTYPE_METHOD(ctor, "synchronize", Synchronize);
 
@@ -393,6 +400,24 @@ public:
 
     return Boolean::New(db->close());
   }
+
+  
+  // ### Clear ###
+
+  DEFINE_METHOD(Clear, ClearRequest)
+  class ClearRequest: public CloseRequest {
+  public:
+
+    ClearRequest(const Arguments& args):
+      CloseRequest(args)
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+      if (!db->clear()) result = db->error().code();
+      return 0;
+    }
+  };
 
   
   // ### Set ###
@@ -592,6 +617,72 @@ public:
   };
 
   
+  // ### CAS ###
+
+  DEFINE_METHOD(CAS, CASRequest)
+  class CASRequest: public Request {
+  protected:
+    String::Utf8Value key;
+    String::Utf8Value *ovalue;
+    String::Utf8Value *nvalue;
+    bool success;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 3
+	      && args[0]->IsString()
+	      && (args[1]->IsString() || args[1]->IsNull())
+	      && (args[2]->IsString() || args[2]->IsNull())
+	      && args[3]->IsFunction());
+    }
+
+    CASRequest(const Arguments& args):
+      Request(args, 3),
+      key(args[0]->ToString()),
+      ovalue(NULL),
+      nvalue(NULL)
+    {
+      if (args[1]->IsString()) {
+	ovalue = new String::Utf8Value(args[1]->ToString());
+      }
+
+      if (args[2]->IsString()) {
+	nvalue = new String::Utf8Value(args[2]->ToString());
+      }
+    }
+
+    ~CASRequest() {
+      if (ovalue) delete ovalue;
+      if (nvalue) delete nvalue;
+    }
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+
+      success = db->cas(*key, key.length(),
+			(ovalue == NULL ? NULL : **ovalue),
+			(ovalue == NULL ? 0 : ovalue->length()),
+			(nvalue == NULL ? NULL : **nvalue),
+			(nvalue == NULL ? 0 : nvalue->length()));
+
+      if (!success) {
+	result = db->error().code();
+      }
+
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[2] = {
+	(result == PolyDB::Error::LOGIC) ? LNULL : error(),
+	BOOL_TO_LOCAL_V8(success)
+      };
+      callback(2, argv);
+      return 0;
+    }
+  };
+
+  
   // ### Get ###
 
   DEFINE_METHOD(Get, GetRequest)
@@ -670,9 +761,92 @@ public:
     }
 
     inline int after() {
-      int argc = 2;
       Local<Value> argv[2] = { error(), MapToObj(items) };
-      callback(argc, argv);
+      callback(2, argv);
+      return 0;
+    }
+  };
+
+  
+  // ### SetBulk ###
+
+  DEFINE_METHOD(SetBulk, SetBulkRequest)
+  class SetBulkRequest: public Request {
+  protected:
+    StringMap items;
+    bool atomic;
+    int64_t stored;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 3
+	      && args[0]->IsObject()
+	      && args[1]->IsBoolean()
+	      && args[2]->IsFunction());
+    }
+
+    SetBulkRequest(const Arguments& args):
+      Request(args, 2),
+      atomic(V8_TO_BOOL(args[1]))
+    {
+      ObjToMap(args[0], items);
+    }
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+
+      stored = db->set_bulk(items, atomic);
+      if (stored == -1) {
+	result = db->error().code();
+      }
+
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[2] = { error(), Integer::New(stored) };
+      callback(2, argv);
+      return 0;
+    }
+  };
+
+  
+  // ### RemoveBulk ###
+
+  DEFINE_METHOD(RemoveBulk, RemoveBulkRequest)
+  class RemoveBulkRequest: public Request {
+  protected:
+    StringList keys;
+    bool atomic;
+    int64_t removed;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 3
+	      && args[0]->IsArray()
+	      && args[1]->IsBoolean()
+	      && args[2]->IsFunction());
+    }
+
+    RemoveBulkRequest(const Arguments& args):
+      Request(args, 2),
+      atomic(V8_TO_BOOL(args[1]))
+    {
+      ArrayToList(args[0], keys);
+    }
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+      removed = db->remove_bulk(keys, atomic);
+      if (removed == -1) {
+	result = db->error().code();
+      }
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[2] = { error(), Integer::New(removed) };
+      callback(2, argv);
       return 0;
     }
   };

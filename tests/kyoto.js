@@ -104,7 +104,7 @@ module.exports = {
   },
 
   'increment': function(done) {
-    db.increment('iota', 1, function(err, val) {
+    db.increment('zeta', 1, function(err, val) {
       if (err) throw err;
       Assert.equal(1, val);
       done();
@@ -112,7 +112,7 @@ module.exports = {
   },
 
   'increment again': function(done) {
-    db.increment('iota', 1, function(err, val) {
+    db.increment('zeta', 1, function(err, val) {
       if (err) throw err;
       Assert.equal(2, val);
       done();
@@ -120,7 +120,7 @@ module.exports = {
   },
 
   'increment double': function(done) {
-    db.incrementDouble('kappa', 0.1, 1.0, function(err, val) {
+    db.incrementDouble('eta', 0.1, 1.0, function(err, val) {
       if (err) throw err;
       Assert.equal(1.1, val);
       done();
@@ -128,34 +128,93 @@ module.exports = {
   },
 
   'increment double again': function(done) {
-    db.incrementDouble('kappa', 0.1, 1.0, function(err, val) {
+    db.incrementDouble('eta', 0.1, 1.0, function(err, val) {
       if (err) throw err;
       Assert.equal(1.2, val);
       done();
     });
   },
 
-  'close': function(done) {
-    db.close(function(err) {
+  'cas': function(done) {
+    db.cas('theta', null, 'first', function(err, success) {
+      if (err) throw err;
+      Assert.ok(success);
+      isEqual('theta', 'first', done);
+    });
+  },
+
+  'cas again': function(done) {
+    db.cas('theta', 'first', 'second', function(err, success) {
+      if (err) throw err;
+      Assert.ok(success);
+      isEqual('theta', 'second', done);
+    });
+  },
+
+  'cas fail': function(done) {
+    db.cas('theta', 'first', 'third', function(err, success) {
+      if (err) throw err;
+      Assert.ok(!success);
+      done();
+    });
+  },
+
+  'cas remove': function(done) {
+    db.cas('theta', 'second', null, function(err, success) {
+      if (err) throw err;
+      Assert.ok(success);
+      isEqual('theta', undefined, done);
+    });
+  },
+
+  'set bulk': function(done) {
+    var data = { 'alpha': '1', 'apple': '2', 'api': '3' };
+
+    db.setBulk(data, true, function(err) {
+      if (err) throw err;
+      db.getBulk(Object.keys(data), verify);
+    });
+
+    function verify(err, items) {
+      if (err) throw err;
+      Assert.deepEqual(data, items);
+      done();
+    }
+  },
+
+  'remove bulk': function(done) {
+    var data = { 'alpha': '1', 'apple': '2', 'api': '3' };
+
+    db.removeBulk(['alpha', 'apple'], function(err) {
+      if (err) throw err;
+      db.getBulk(['alpha', 'apple', 'api'], verify);
+    });
+
+    function verify(err, items) {
+      if (err) throw err;
+      Assert.deepEqual({ 'api': '3' }, items);
+      done();
+    }
+  },
+
+  'clear': function(done) {
+    db.clear(function(err) {
       if (err) throw err;
       done();
     });
   },
 
   'cursor tests': function(done) {
-    db = Kyoto.open('+', 'w+', function(err) {
-      if (err) throw err;
-      load(done, {
-        'alpha': '1',
-        'apple': '2',
-        'api': '3',
-        'aardvark': '4',
-        'air': '5',
-        'active': '6',
-        'arrest': '7',
-        'allow': '8'
-      });
-    });
+    db.setBulk({
+      'alpha': '1',
+      'apple': '2',
+      'api': '3',
+      'aardvark': '4',
+      'air': '5',
+      'active': '6',
+      'arrest': '7',
+      'allow': '8'
+    }, done);
   },
 
   'cursor jump': function(done) {
@@ -303,6 +362,13 @@ module.exports = {
       Assert.equal(key, 'allow');
       done();
     }
+  },
+
+  'close': function(done) {
+    db.close(function(err) {
+      if (err) throw err;
+      done();
+    });
   }
 
 };
