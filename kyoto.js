@@ -435,31 +435,64 @@ KyotoDB.prototype.synchronize = function(hard, next) {
   return this;
 };
 
+// Copy the current database file to another file.
+//
+// + path - String destination
+// + next - Function(Error) callback
+//
+// Returns self
 KyotoDB.prototype.copy = function(path, next) {
   return this._snap('copy', path, next);
 };
 
+// Create a snapshot of this database, write it to a file.
+//
+// + path - String destination
+// + next - Function(Error) callback
+//
+// Returns self
 KyotoDB.prototype.dumpSnapshot = function(path, next) {
   return this._snap('dumpSnapshot', path, next);
 };
 
+// Load a snapshot file into this database.
+//
+// + path - String snapshot source
+// + next - Function(Error) callback
+//
+// Returns self
 KyotoDB.prototype.loadSnapshot = function(path, next) {
   return this._snap('loadSnapshot', path, next);
 };
 
+// Find the number of records currently stored.
+//
+// + next - Function(Error, Integer) callback
+//
+// Returns self
 KyotoDB.prototype.count = function(next) {
   return this._stat('count', next);
 };
 
+// Find current size of the database in bytes.
+//
+// + next - Function(Error, Integer) callback
+//
+// Returns self
 KyotoDB.prototype.size = function(next) {
   return this._stat('size', next);
 };
 
+// Retrieve status information about the current database.
+//
+// + next - Function(Error, Object info) callback
+//
+// Returns self
 KyotoDB.prototype.status = function(next) {
   return this._stat('status', next);
 };
 
-// TODO: merge, scan
+// TODO: merge, scan_parallel
 
 // KyotoDB.prototype.merge = function(others, next) {
 //   var self = this;
