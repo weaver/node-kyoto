@@ -435,10 +435,52 @@ KyotoDB.prototype.synchronize = function(hard, next) {
   return this;
 };
 
-// TODO:  matchPrefix, matchRegex
-// MORE: dumpSnapshot, loadSnapshot
-// THEN: count, size, status, merge
-// MAYBE: scan_parallel
+KyotoDB.prototype.copy = function(path, next) {
+  return this._snap('copy', path, next);
+};
+
+KyotoDB.prototype.dumpSnapshot = function(path, next) {
+  return this._snap('dumpSnapshot', path, next);
+};
+
+KyotoDB.prototype.loadSnapshot = function(path, next) {
+  return this._snap('loadSnapshot', path, next);
+};
+
+KyotoDB.prototype.count = function(next) {
+  return this._stat('count', next);
+};
+
+KyotoDB.prototype.size = function(next) {
+  return this._stat('size', next);
+};
+
+KyotoDB.prototype.status = function(next) {
+  return this._stat('status', next);
+};
+
+// TODO: merge, scan
+
+// KyotoDB.prototype.merge = function(others, next) {
+//   var self = this;
+
+//   next = next || noop;
+//   for (var i = 0, l = others.length; i < l; i++) {
+//     if (!(others instanceof KyotoDB)) {
+//       next.call(this, new Error('merge: requires array of KyotoDB instances.'));
+//       return this;
+//     }
+//   }
+
+//   if (this.db === null)
+//     next.call(this, new Error('merge: database is closed.'));
+//   else
+//     this.db.merge(others, function(err) {
+//       next.call(self, err);
+//     });
+
+//   return this;
+// };
 
 // A low-level helper method. See add() or set().
 KyotoDB.prototype._modify = function(method, key, val, next) {
@@ -479,6 +521,7 @@ KyotoDB.prototype._inc = function(method, key, num, orig, next) {
   return this;
 };
 
+// See getBulk(), setBulk(), &c
 KyotoDB.prototype._bulk = function(method, what, atomic, next) {
   var self = this;
 
@@ -500,6 +543,7 @@ KyotoDB.prototype._bulk = function(method, what, atomic, next) {
   return this;
 };
 
+// See matchPrefix() &c
 KyotoDB.prototype._match = function(method, pattern, max, next) {
   var self = this;
 
@@ -512,6 +556,36 @@ KyotoDB.prototype._match = function(method, pattern, max, next) {
     next.call(this, new Error(method + ': database is closed.'));
   else
     this.db[method](pattern, max, next);
+
+  return this;
+};
+
+// See dumpSnapshot &c
+KyotoDB.prototype._snap = function(method, path, next) {
+  var self = this;
+
+  next = next || noop;
+
+  if (this.db === null)
+    next.call(this, new Error(method + ': database is closed.'));
+  else
+    this.db[method](path, function(err) {
+      next.call(self, err);
+    });
+
+  return this;
+};
+
+// See size() &c
+KyotoDB.prototype._stat = function(method, next) {
+  var self = this;
+
+  if (this.db === null)
+    next.call(this, new Error(method + ': database is closed.'));
+  else
+    this.db[method](function(err, info) {
+      next.call(self, err, info);
+    });
 
   return this;
 };

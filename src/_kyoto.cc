@@ -206,6 +206,11 @@ public:
     SET_CLASS_CONSTANT(ctor, PolyDB, OTRYLOCK);
     SET_CLASS_CONSTANT(ctor, PolyDB, ONOREPAIR);
 
+    SET_CLASS_CONSTANT(ctor, PolyDB, MSET);
+    SET_CLASS_CONSTANT(ctor, PolyDB, MADD);
+    SET_CLASS_CONSTANT(ctor, PolyDB, MREPLACE);
+    SET_CLASS_CONSTANT(ctor, PolyDB, MAPPEND);
+
     SET_CLASS_CONSTANT(ctor, PolyDB::Error, SUCCESS);
     SET_CLASS_CONSTANT(ctor, PolyDB::Error, NOIMPL);
     SET_CLASS_CONSTANT(ctor, PolyDB::Error, INVALID);
@@ -240,6 +245,13 @@ public:
     NODE_SET_PROTOTYPE_METHOD(ctor, "matchPrefix", MatchPrefix);
     NODE_SET_PROTOTYPE_METHOD(ctor, "matchRegex", MatchRegex);
     NODE_SET_PROTOTYPE_METHOD(ctor, "synchronize", Synchronize);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "copy", Copy);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "dumpSnapshot", DumpSnapshot);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "loadSnapshot", LoadSnapshot);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "count", Count);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "size", Size);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "status", Status);
+    // NODE_SET_PROTOTYPE_METHOD(ctor, "merge", Merge);
 
     // Here are some non-standard methods for Toji.
     NODE_SET_PROTOTYPE_METHOD(ctor, "addIndexed", AddIndexed);
@@ -1004,6 +1016,222 @@ public:
       return 0;
     }
   };
+
+  
+  // ### Copy ###
+
+  DEFINE_METHOD(Copy, CopyRequest)
+  class CopyRequest: public Request {
+  protected:
+    String::Utf8Value path;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 2
+	      && args[0]->IsString()
+	      && args[1]->IsFunction());
+    }
+
+    CopyRequest(const Arguments& args):
+      Request(args, 1),
+      path(args[0]->ToString())
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+      if (!db->copy(std::string(*path, path.length()))) {
+	result = db->error().code();
+      }
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[1] = { error() };
+      callback(1, argv);
+      return 0;
+    }
+  };
+
+  
+  // ### DumpSnapshot ###
+
+  DEFINE_METHOD(DumpSnapshot, DumpSnapshotRequest)
+  class DumpSnapshotRequest: public CopyRequest {
+  public:
+    DumpSnapshotRequest(const Arguments& args):
+      CopyRequest(args)
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+      if (!db->dump_snapshot(std::string(*path, path.length()))) {
+	result = db->error().code();
+      }
+      return 0;
+    }
+  };
+
+  
+  // ### LoadSnapshot ###
+
+  DEFINE_METHOD(LoadSnapshot, LoadSnapshotRequest)
+  class LoadSnapshotRequest: public CopyRequest {
+  public:
+    LoadSnapshotRequest(const Arguments& args):
+      CopyRequest(args)
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+      if (!db->load_snapshot(std::string(*path, path.length()))) {
+	result = db->error().code();
+      }
+      return 0;
+    }
+  };
+
+  
+  // ### Count ###
+
+  DEFINE_METHOD(Count, CountRequest)
+  class CountRequest: public Request {
+  protected:
+    int64_t total;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 1
+	      && args[0]->IsFunction());
+    }
+
+    CountRequest(const Arguments& args):
+      Request(args, 0)
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+      total = db->count();
+      if (total == -1) {
+	result = db->error().code();
+      }
+
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[2] = { error(), Integer::New(total) };
+      callback(2, argv);
+      return 0;
+    }
+  };
+
+  
+  // ### Size ###
+
+  DEFINE_METHOD(Size, SizeRequest)
+  class SizeRequest: public CountRequest {
+
+  public:
+    SizeRequest(const Arguments& args):
+      CountRequest(args)
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+      total = db->size();
+      if (total == -1) {
+	result = db->error().code();
+      }
+
+      return 0;
+    }
+  };
+
+  
+  // ### Status ###
+
+  DEFINE_METHOD(Status, StatusRequest)
+  class StatusRequest: public Request {
+  protected:
+    StringMap status;
+
+  public:
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 1
+	      && args[0]->IsFunction());
+    }
+
+    StatusRequest(const Arguments& args):
+      Request(args, 0)
+    {}
+
+    inline int exec() {
+      PolyDB* db = wrap->db;
+      if (!db->status(&status)) {
+	result = db->error().code();
+      }
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[2] = { error(), MapToObj(status) };
+      callback(2, argv);
+      return 0;
+    }
+  };
+
+  // 
+  // // ### Merge ###
+
+  // DEFINE_METHOD(Merge, MergeRequest)
+  // class MergeRequest: public Request {
+  // protected:
+  //   std::vector<BasicDB*> src;
+  //   PolyDB::MergeMode mode;
+
+  // public:
+  //   inline static bool validate(const Arguments& args) {
+  //     return (args.Length() >= 3
+  // 	      && args[0]->IsArray()
+  // 	      && args[1]->IsUint32()
+  // 	      && args[2]->IsFunction());
+  //   }
+
+  //   MergeRequest(const Arguments& args):
+  //     Request(args, 2)
+  //   {
+  //     HandleScope scope;
+
+  //     // Convert array of wrapped PolyDB to src vector.
+  //     Local<Array> array = Local<Array>::Cast(args[0]);
+
+  //     size_t alen = array->Length();
+  //     src.reserve(alen);
+
+  //     for (size_t i = 0; i < alen; i++) {
+  // 	Local<Value> val = array->Get(Integer::New(i));
+  // 	PolyDBWrap* wrap = ObjectWrap::Unwrap<PolyDBWrap>(val);
+  // 	src.push_back(wrap->db->reveal_inner_db());
+  //     }
+
+  //     mode = static_cast<PolyDB::MergeMode>(args[1]->Uint32Value());
+  //   }
+
+  //   inline int exec() {
+  //     PolyDB* db = wrap->db;
+  //     BasicDB** srcary = static_cast<BasicDB**>(&src[0]);
+  //     if (!db->merge(srcary, src.size(), mode)) {
+  // 	result = db->error().code();
+  //     }
+  //     return 0;
+  //   }
+
+  //   inline int after() {
+  //     Local<Value> argv[1] = { error() };
+  //     callback(1, argv);
+  //     return 0;
+  //   }
+  // };
 
   
   // ## Toji Support ##

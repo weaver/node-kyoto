@@ -380,6 +380,78 @@ module.exports = {
     });
   },
 
+  'snapshot': function(done) {
+    var data = { a: '1', b: '2' },
+        dest = '/tmp/kyoto-test.snapshot';
+
+    freshDB('+', data, function(err, db1) {
+      if (err) throw err;
+      db1.dumpSnapshot(dest, load);
+    });
+
+    function load(err) {
+      if (err) throw err;
+      freshDB('+', {}, function(err, db2) {
+        if (err) throw err;
+        db2.loadSnapshot(dest, compare);
+      });
+    }
+
+    function compare(err) {
+      if (err) throw err;
+      allEqual(done, this, data);
+    }
+  },
+
+  'copy': function(done) {
+    var data = { a: '1', b: '2' },
+        dest = '/tmp/kyoto-test-copy.kct';
+
+    freshDB('/tmp/kyoto-test-src.kct', data, function(err, db1) {
+      if (err) throw err;
+      db1.copy(dest, open);
+    });
+
+    function open(err) {
+      if (err) throw err;
+      console.error('opening');
+      Kyoto.open(dest, verify);
+    }
+
+    function verify(err) {
+      if (err) throw err;
+      allEqual(done, this, data);
+    }
+  },
+
+  'count': function(done) {
+    freshDB('+', { a: '1', b: '2' }, function(err, store) {
+      if (err) throw err;
+      store.count(verify);
+    });
+
+    function verify(err, total) {
+      if (err) throw err;
+      Assert.equal(2, total);
+      done();
+    }
+  },
+
+  'size': function(done) {
+    db.size(function(err, total) {
+      if (err) throw err;
+      Assert.ok(total > 0);
+      done();
+    });
+  },
+
+  'status': function(done) {
+    db.status(function(err, info) {
+      Assert.deepEqual(['count', 'path', 'realtype', 'size', 'type'], Object.keys(info));
+      done();
+    });
+  },
+
   'close': function(done) {
     db.close(function(err) {
       if (err) throw err;
@@ -400,10 +472,15 @@ function isEqual(key, expect, done) {
   });
 }
 
-function allEqual(done, expect) {
+function allEqual(done, store, expect) {
   var all = {};
 
-  db.each(assert, function(val, key) {
+  if (!(store instanceof Kyoto.KyotoDB)) {
+    expect = store;
+    store = db;
+  }
+
+  store.each(assert, function(val, key) {
     all[key] = val;
   });
 
@@ -414,7 +491,12 @@ function allEqual(done, expect) {
   }
 }
 
-function load(done, data) {
+function load(done, store, data) {
+  if (!(store instanceof Kyoto.KyotoDB)) {
+    data = store;
+    store = db;
+  }
+
   var keys = Object.keys(data);
   next();
 
@@ -423,7 +505,7 @@ function load(done, data) {
       done(err);
     else {
       var key = keys.shift();
-      db.set(key, data[key], next);
+      store.set(key, data[key], next);
     }
   }
 }
@@ -437,4 +519,14 @@ function showEach(done) {
       showEach(done);
     }
   });
+}
+
+function freshDB(path, data, next) {
+  var store = Kyoto.open(path, 'w+', function(err) {
+    err ? next(err) : load(done, store, data);
+  });
+
+  function done(err) {
+    next(err, store);
+  }
 }
