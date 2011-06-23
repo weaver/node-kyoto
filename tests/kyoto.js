@@ -200,7 +200,7 @@ module.exports = {
   'clear': function(done) {
     db.clear(function(err) {
       if (err) throw err;
-      done();
+      allEqual(done, {});
     });
   },
 
@@ -364,6 +364,38 @@ module.exports = {
     }
   },
 
+  'cursor set value': function(done) {
+    (cursor = db.cursor()).jump('alpha', function(err) {
+      if (err) throw err;
+      cursor.setValue('alpha-prime', verify);
+    });
+
+    function verify(err) {
+      if (err) throw err;
+      db.get('alpha', function(err, val) {
+        if (err) throw err;
+        Assert.equal('alpha-prime', val);
+        done();
+      });
+    }
+  },
+
+  'cursor remove': function(done) {
+    (cursor = db.cursor()).jump('alpha', function(err) {
+      if (err) throw err;
+      cursor.remove(verify);
+    });
+
+    function verify(err) {
+      if (err) throw err;
+      db.get('alpha', function(err, val) {
+        if (err) throw err;
+        Assert.equal(undefined, val);
+        done();
+      });
+    }
+  },
+
   'match prefix': function(done) {
     db.matchPrefix('ap', function(err, keys) {
       if (err) throw err;
@@ -414,7 +446,6 @@ module.exports = {
 
     function open(err) {
       if (err) throw err;
-      console.error('opening');
       Kyoto.open(dest, verify);
     }
 

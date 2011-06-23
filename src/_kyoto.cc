@@ -1550,6 +1550,9 @@ public:
     NODE_SET_PROTOTYPE_METHOD(ctor, "getKey", GetKey);
     NODE_SET_PROTOTYPE_METHOD(ctor, "getKeyBlock", GetKeyBlock);
     NODE_SET_PROTOTYPE_METHOD(ctor, "getValue", GetValue);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "setValue", SetValue);
+    NODE_SET_PROTOTYPE_METHOD(ctor, "remove", Remove);
+    // NODE_SET_PROTOTYPE_METHOD(ctor, "seize", Seize);
     NODE_SET_PROTOTYPE_METHOD(ctor, "jump", Jump);
     NODE_SET_PROTOTYPE_METHOD(ctor, "jumpTo", JumpTo);
     NODE_SET_PROTOTYPE_METHOD(ctor, "jumpBack", JumpBack);
@@ -1754,6 +1757,122 @@ public:
       return 0;
     }
   };
+
+  
+  // ### Set Value ###
+
+  DEFINE_METHOD(SetValue, SetValueRequest)
+  class SetValueRequest: public Request {
+  protected:
+    String::Utf8Value value;
+    bool step;
+
+  public:
+
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 3
+	      && args[0]->IsString()
+	      && args[1]->IsBoolean()
+	      && args[2]->IsFunction());
+    }
+
+    SetValueRequest(const Arguments& args):
+      Request(args, 2),
+      value(args[0]->ToString()),
+      step(V8_TO_BOOL(args[1]))
+    {}
+
+    inline int exec() {
+      DB::Cursor* cursor = wrap->cursor;
+      if (!cursor->set_value(*value, value.length(), step)) {
+	result = CURSOR_ERROR(cursor);
+      }
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[1] = { error() };
+      callback(1, argv);
+      return 0;
+    }
+  };
+
+  
+  // ### Remove ###
+
+  DEFINE_METHOD(Remove, RemoveRequest)
+  class RemoveRequest: public Request {
+
+  public:
+
+    inline static bool validate(const Arguments& args) {
+      return (args.Length() >= 1 && args[0]->IsFunction());
+    }
+
+    RemoveRequest(const Arguments& args):
+      Request(args, 0)
+    {}
+
+    inline int exec() {
+      DB::Cursor* cursor = wrap->cursor;
+      if (!cursor->remove()) {
+	result = CURSOR_ERROR(cursor);
+      }
+      return 0;
+    }
+
+    inline int after() {
+      Local<Value> argv[1] = { error() };
+      callback(1, argv);
+      return 0;
+    }
+  };
+
+  
+  // ### Seize ###
+
+  // DEFINE_METHOD(Seize, SeizeRequest)
+  // class SeizeRequest: public Request {
+  // private:
+  //   std::string key, value;
+
+  // public:
+
+  //   inline static bool validate(const Arguments& args) {
+  //     return (args.Length() >= 1 && args[1]->IsFunction());
+  //   }
+
+  //   SeizeRequest(const Arguments& args):
+  //     Request(args, 0)
+  //   {}
+
+  //   inline int exec() {
+  //     DB::Cursor* cursor = wrap->cursor;
+  //     if (!cursor->seize(&key, &value)) {
+  // 	result = CURSOR_ERROR(cursor);
+  //     }
+  //     return 0;
+  //   }
+
+  //   inline int after() {
+  //     int argc;
+  //     Local<Value> argv[3];
+
+  //     if (result == PolyDB::Error::SUCCESS) {
+  // 	argc = 3;
+  // 	argv[0] = LNULL;
+  // 	argv[1] = WRAP_STRING(value);
+  // 	argv[2] = WRAP_STRING(key);
+  //     }
+  //     else {
+  // 	argc = 1;
+  // 	argv[0] = (result == PolyDB::Error::NOREC) ? LNULL : error();
+  //     }
+
+  //     callback(argc, argv);
+  //     return 0;
+  //   }
+  // };
 
   
   // ### Get Key Block ###

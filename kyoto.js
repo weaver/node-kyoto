@@ -655,7 +655,14 @@ KyotoDB.prototype.each = function(done, fn) {
   }
 
   wantsNext = fn.length > 2;
-  cursor.jump(step);
+  cursor.jump(function(err) {
+    if (err && err.code === NOREC)
+      finish();
+    else if (err)
+      finish(err);
+    else
+      step();
+  });
 
   function step(err) {
     err ? finish(err) : cursor.get(true, dispatch);
@@ -761,10 +768,10 @@ Cursor.prototype.getKey = function(step, next) {
 Cursor.prototype.getValue = function(step, next) {
   if (typeof step == 'function') {
     next = step;
-    step = false;
+    step = undefined;
   }
 
-  this.cursor.getValue(step, function(err, val) {
+  this.cursor.getValue(!!step, function(err, val) {
     if (err && err.code == NOREC)
       next(null);
     else if (err)
@@ -773,6 +780,36 @@ Cursor.prototype.getValue = function(step, next) {
       next(null, val);
   });
 
+  return this;
+};
+
+// Set the value of the current item.
+//
+// + step - Boolean step to next record afterward (optional, default: false)
+// + next - Function(Error) callback
+//
+// Returns self
+Cursor.prototype.setValue = function(value, step, next) {
+  if (typeof step == 'function') {
+    next = step;
+    step = undefined;
+  }
+
+  this.cursor.setValue(value, !!step, next);
+
+  return this;
+};
+
+// Remove the current item.
+//
+// If there is no current item, call `next` with a `null` value.
+//
+// + step - Boolean step to next record afterward (optional, default: false)
+// + next - Function(Error) callback
+//
+// Returns self
+Cursor.prototype.remove = function(next) {
+  this.cursor.remove(next);
   return this;
 };
 
