@@ -2,5 +2,6 @@
   "name": "kyoto",
   "version": "0.2.3",
   "description": "Kyoto Cabinet bindings for Node.JS",
-  "author": "Ben Weaver <ben@orangesoda.net>"
+  "author": "Ben Weaver <ben@orangesoda.net>",
+  "main": "./kyoto"
 }
