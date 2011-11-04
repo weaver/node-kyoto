@@ -11,6 +11,7 @@
 
 #include <v8.h>
 #include <node.h>
+#include <node_version.h>
 #include <kcpolydb.h>
 
 using namespace std;
