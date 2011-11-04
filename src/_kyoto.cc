@@ -70,11 +70,19 @@ using namespace kyotocabinet;
     return args.This();							\
   }									\
 
-#define DEFINE_EXEC(Name, Request)					\
-  static int EIO_Exec##Name(eio_req *ereq) {				\
-    Request* req = static_cast<Request *>(ereq->data);			\
-    return req->exec();							\
-  }									\
+#if NODE_VERSION_AT_LEAST(0, 5, 4)
+#define DEFINE_EXEC(Name, Request)                     \
+  static void EIO_Exec##Name(eio_req *ereq) {          \
+    Request* req = static_cast<Request *>(ereq->data); \
+    req->exec();                                       \
+  }
+#else
+#define DEFINE_EXEC(Name, Request)                     \
+  static int EIO_Exec##Name(eio_req *ereq) {           \
+    Request* req = static_cast<Request *>(ereq->data); \
+    return req->exec();                                \
+  }
+#endif
 
 #define DEFINE_AFTER(Name, Request)					\
   static int EIO_After##Name(eio_req *ereq) {				\
