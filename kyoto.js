@@ -5,7 +5,7 @@
 // possible to do all of this in the bindings, but it's easier this
 // way.
 
-var K = require('./build/default/_kyoto'),
+var K = require('./build/_kyoto'),
     LOGIC = K.PolyDB.LOGIC,
     NOREC = K.PolyDB.NOREC;
 
